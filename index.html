@@ -87,11 +87,11 @@ async function load(){
 
 function render(){
   const tabs = [['dash','Tableau de bord'],['depense','Dépenses'],['revenu','Revenus'],['cat','Catégories']];
-  const now = new Date().getFullYear();
-  const years = Array.from({length:16},(_,i)=>now-10+i).map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('');
   $('#app').innerHTML = `<header><h1>Budget familial</h1>
     <nav>${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</nav>
-    <span><select onchange="year=+this.value;load()">${years}</select>
+    <span><button onclick="year--;load()" title="Année précédente">◀</button>
+    <input type="number" value="${year}" min="1900" max="2200" style="width:84px;text-align:center" onchange="year=+this.value||year;load()">
+    <button onclick="year++;load()" title="Année suivante">▶</button>
     <button onclick="db.auth.signOut()">Quitter</button></span></header>
     <main>${tab==='dash'?dash():tab==='cat'?catsView():entries(tab)}</main>`;
 }
