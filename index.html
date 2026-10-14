@@ -41,6 +41,9 @@ td.n,th.n{text-align:right}
 const SUPABASE_URL = 'https://evkwxfjnkawxfymamtin.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2a3d4Zmpua2F3eGZ5bWFtdGluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NzExNTgsImV4cCI6MjEwNzU0NzE1OH0.oVowOIi6PUjH1ac8qRRoxUUOlY2GviwFjVo_b6buELg';
 // ======================================================
+const REQUIRE_LOGIN = false; // false = pas de connexion (tests seulement). Remettre true en vrai usage.
+//=========================================================
+
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
