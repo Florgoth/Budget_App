@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget familial</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--mu:#6b7385;--ac:#2f6fed;--ok:#1f9d55;--ko:#d64545;--bd:#e3e6ec}
+@media(prefers-color-scheme:dark){:root{--bg:#14171d;--card:#1d222b;--tx:#e8ebf1;--mu:#98a1b3;--bd:#2c3340}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,Arial,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--bd)}
+h1{font-size:18px;margin:0}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+button,select,input{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:7px 10px}
+button{cursor:pointer}
+button.on,button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+main{max-width:980px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.kpi small{color:var(--mu)}.kpi b{display:block;font-size:22px}
+.ok{color:var(--ok)}.ko{color:var(--ko)}
+form.row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+form.row input[name=description]{flex:1;min-width:140px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--bd)}
+td.n,th.n{text-align:right}
+.bar{display:flex;align-items:center;gap:8px;margin:4px 0}
+.bar span:first-child{width:200px;font-size:13px}
+.bar i{display:block;height:12px;background:var(--ac);border-radius:6px}
+.login{max-width:340px;margin:12vh auto;display:grid;gap:10px}
+.x{border:none;background:none;color:var(--ko);padding:2px 6px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+// === À MODIFIER : Supabase > Project Settings > API ===
+const SUPABASE_URL = 'https://evkwxfjnkawxfymamtin.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2a3d4Zmpua2F3eGZ5bWFtdGluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NzExNTgsImV4cCI6MjEwNzU0NzE1OH0.oVowOIi6PUjH1ac8qRRoxUUOlY2GviwFjVo_b6buELg';
+// ======================================================
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+const MOIS = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+const fmt = n => new Intl.NumberFormat('fr-CA',{style:'currency',currency:'CAD'}).format(n||0);
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sum = a => a.reduce((s,x)=>s+Number(x.amount),0);
+let year = new Date().getFullYear(), tab = 'dash', cats = [], tx = [];
+
+(async()=>{
+  const {data:{session}} = await db.auth.getSession();
+  session ? load() : login();
+  db.auth.onAuthStateChange(e => { if (e==='SIGNED_OUT') login(); });
+})();
+
+function login(){
+  $('#app').innerHTML = `<form class="card login" onsubmit="auth(event,'in')">
+    <h1>Budget familial</h1>
+    <input name="email" type="email" placeholder="Courriel" required>
+    <input name="password" type="password" placeholder="Mot de passe (6 car. min.)" required minlength="6">
+    <button class="p">Se connecter</button>
+    <button type="button" onclick="auth(event,'up')">Créer un compte</button>
+    <small id="msg" class="ko"></small></form>`;
+}
+async function auth(e, mode){
+  e.preventDefault();
+  const f = e.target.closest('form');
+  const creds = {email:f.email.value, password:f.password.value};
+  const {error} = mode==='in' ? await db.auth.signInWithPassword(creds) : await db.auth.signUp(creds);
+  if (error) $('#msg').textContent = error.message;
+  else if (mode==='up') $('#msg').textContent = 'Compte créé. Si demandé, confirmez par courriel puis connectez-vous.';
+  else load();
+}
+
+async function load(){
+  const [c,t] = await Promise.all([
+    db.from('categories').select('*').order('name'),
+    db.from('transactions').select('*').gte('date',`${year}-01-01`).lte('date',`${year}-12-31`).order('date',{ascending:false})
+  ]);
+  const err = c.error || t.error;
+  if (err) { alert(err.message); return; }
+  cats = c.data; tx = t.data; render();
+}
+
+function render(){
+  const tabs = [['dash','Tableau de bord'],['depense','Dépenses'],['revenu','Revenus'],['cat','Catégories']];
+  const years = [year-3,year-2,year-1,year,year+1].map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('');
+  $('#app').innerHTML = `<header><h1>Budget familial</h1>
+    <nav>${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</nav>
+    <span><select onchange="year=+this.value;load()">${years}</select>
+    <button onclick="db.auth.signOut()">Quitter</button></span></header>
+    <main>${tab==='dash'?dash():tab==='cat'?catsView():entries(tab)}</main>`;
+}
+
+function dash(){
+  const rev = tx.filter(x=>x.kind==='revenu'), dep = tx.filter(x=>x.kind==='depense');
+  const R = sum(rev), D = sum(dep), S = R-D;
+  const m = MOIS.map((_,i)=>{
+    const f = k => sum(tx.filter(x=>x.kind===k && +x.date.slice(5,7)===i+1));
+    return {r:f('revenu'), d:f('depense')};
+  });
+  const max = Math.max(1, ...m.flatMap(x=>[x.r,x.d]));
+  const bars = m.map((x,i)=>{
+    const hr = x.r/max*160, hd = x.d/max*160, bx = 10+i*56;
+    return `<rect x="${bx}" y="${180-hr}" width="20" height="${hr}" fill="#1f9d55"/>
+      <rect x="${bx+22}" y="${180-hd}" width="20" height="${hd}" fill="#d64545"/>
+      <text x="${bx+21}" y="198" font-size="11" text-anchor="middle" fill="currentColor">${MOIS[i]}</text>`;
+  }).join('');
+  const by = {};
+  dep.forEach(x => by[x.category] = (by[x.category]||0) + Number(x.amount));
+  const rows = Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  const top = rows.length ? rows[0][1] : 1;
+  return `<div class="kpis">
+    <div class="card kpi"><small>Total revenus</small><b class="ok">${fmt(R)}</b></div>
+    <div class="card kpi"><small>Total dépenses</small><b class="ko">${fmt(D)}</b></div>
+    <div class="card kpi"><small>Solde annuel</small><b class="${S>=0?'ok':'ko'}">${fmt(S)}</b></div></div>
+    <div class="card"><b>Évolution mensuelle</b> <small>(vert : revenus, rouge : dépenses)</small>
+      <div class="scroll"><svg viewBox="0 0 690 205" width="100%" style="min-width:560px">${bars}</svg></div></div>
+    <div class="card"><b>Dépenses par catégorie</b>
+      ${rows.map(([k,v])=>`<div class="bar"><span>${esc(k)}</span><i style="width:${v/top*55}%"></i><span>${fmt(v)}</span></div>`).join('') || '<p>Aucune dépense pour cette année.</p>'}</div>
+    <div class="card scroll"><b>Résumé mensuel</b><table><tr><th>Mois</th><th class="n">Revenus</th><th class="n">Dépenses</th><th class="n">Solde</th></tr>
+      ${m.map((x,i)=>`<tr><td>${MOIS[i]}</td><td class="n">${fmt(x.r)}</td><td class="n">${fmt(x.d)}</td><td class="n ${x.r-x.d>=0?'ok':'ko'}">${fmt(x.r-x.d)}</td></tr>`).join('')}</table></div>`;
+}
+
+function entries(kind){
+  const list = tx.filter(x=>x.kind===kind);
+  const opts = cats.filter(c=>c.kind===kind).map(c=>`<option>${esc(c.name)}</option>`).join('');
+  const today = new Date().toISOString().slice(0,10);
+  return `<div class="card"><form class="row" onsubmit="add('${kind}',event)">
+      <input name="date" type="date" value="${today}" required>
+      <select name="category">${opts}</select>
+      <input name="description" placeholder="Description">
+      <input name="amount" type="number" step="0.01" min="0" placeholder="Montant" required style="width:110px">
+      <button class="p">Ajouter</button></form>
+    <div class="scroll"><table><tr><th>Date</th><th>${kind==='depense'?'Catégorie':'Source'}</th><th>Description</th><th class="n">Montant</th><th></th></tr>
+    ${list.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td>${esc(x.description)}</td><td class="n">${fmt(x.amount)}</td>
+      <td><button class="x" title="Supprimer" onclick="del(${x.id})">✕</button></td></tr>`).join('')}
+    <tr><th colspan="3">Total ${year}</th><th class="n">${fmt(sum(list))}</th><th></th></tr></table></div></div>`;
+}
+async function add(kind, e){
+  e.preventDefault();
+  const f = e.target;
+  const {error} = await db.from('transactions').insert({kind, date:f.date.value, category:f.category.value, description:f.description.value, amount:parseFloat(f.amount.value)});
+  error ? alert(error.message) : load();
+}
+async function del(id){
+  if (!confirm('Supprimer cette ligne ?')) return;
+  const {error} = await db.from('transactions').delete().eq('id', id);
+  error ? alert(error.message) : load();
+}
+
+function catsView(){
+  const block = (kind, title) => `<div class="card"><b>${title}</b>
+    <form class="row" onsubmit="addCat('${kind}',event)" style="margin-top:8px"><input name="name" placeholder="Nouvelle catégorie" required><button class="p">Ajouter</button></form>
+    ${cats.filter(c=>c.kind===kind).map(c=>`<div>${esc(c.name)} <button class="x" onclick="delCat(${c.id})">✕</button></div>`).join('')}</div>`;
+  return block('depense','Catégories de dépenses') + block('revenu','Sources de revenus');
+}
+async function addCat(kind, e){
+  e.preventDefault();
+  const {error} = await db.from('categories').insert({kind, name:e.target.name.value.trim()});
+  error ? alert(error.message) : load();
+}
+async function delCat(id){
+  if (!confirm('Supprimer cette catégorie ? Les lignes existantes la gardent.')) return;
+  const {error} = await db.from('categories').delete().eq('id', id);
+  error ? alert(error.message) : load();
+}
+</script>
+</body>
+</html>
