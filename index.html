@@ -94,6 +94,16 @@ async function newBudget(first){
   try { localStorage.setItem('bid', data); } catch(e) {}
   start();
 }
+async function deleteBudget(){
+  const b = budgets.find(x=>x.id===bid);
+  const t = prompt(`Supprimer le budget « ${b.name} » et TOUTES ses données (dépenses, revenus, catégories) pour tous ses membres ?\nTapez le nom du budget pour confirmer :`);
+  if (t === null) return;
+  if (t.trim() !== b.name) { alert('Nom différent : suppression annulée.'); return; }
+  const {error} = await db.rpc('delete_budget', {bid});
+  if (error) { alert(error.message); return; }
+  try { localStorage.removeItem('bid'); } catch(e) {}
+  start();
+}
 function setBudget(v){ bid = +v; try { localStorage.setItem('bid', bid); } catch(e) {} load(); }
 
 async function load(){
@@ -110,7 +120,7 @@ async function load(){
 function render(){
   const tabs = [['dash','Tableau de bord'],['depense','Dépenses'],['revenu','Revenus'],['cat','Catégories'],['mem','Membres']];
   const bsel = budgets.map(b=>`<option value="${b.id}" ${b.id===bid?'selected':''}>${esc(b.name)}</option>`).join('');
-  $('#app').innerHTML = `<header><span><select onchange="setBudget(this.value)">${bsel}</select> <button onclick="newBudget()" title="Nouveau budget">+</button></span>
+  $('#app').innerHTML = `<header><span><select onchange="setBudget(this.value)">${bsel}</select> <button onclick="newBudget()" title="Nouveau budget">+</button> <button onclick="deleteBudget()" title="Supprimer ce budget">🗑</button></span>
     <nav>${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</nav>
     <span><button onclick="year--;load()" title="Année précédente">◀</button>
     <input type="number" value="${year}" min="1900" max="2200" style="width:84px;text-align:center" onchange="year=+this.value||year;load()">
