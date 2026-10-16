@@ -44,18 +44,17 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const REQUIRE_LOGIN = true; // false = pas de connexion (tests seulement). Remettre true en vrai usage.
 //=========================================================
 
-
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
 const MOIS = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
 const fmt = n => new Intl.NumberFormat('fr-CA',{style:'currency',currency:'CAD'}).format(n||0);
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sum = a => a.reduce((s,x)=>s+Number(x.amount),0);
-let year = new Date().getFullYear(), tab = 'dash', cats = [], tx = [];
+let year = new Date().getFullYear(), tab = 'dash', budgets = [], bid = null, cats = [], tx = [], members = [];
 
 (async()=>{
   const {data:{session}} = await db.auth.getSession();
-  session ? load() : login();
+  session ? start() : login();
   db.auth.onAuthStateChange(e => { if (e==='SIGNED_OUT') login(); });
 })();
 
@@ -75,28 +74,49 @@ async function auth(e, mode){
   const {error} = mode==='in' ? await db.auth.signInWithPassword(creds) : await db.auth.signUp(creds);
   if (error) $('#msg').textContent = error.message;
   else if (mode==='up') $('#msg').textContent = 'Compte créé. Si demandé, confirmez par courriel puis connectez-vous.';
-  else load();
+  else start();
 }
 
+async function start(){
+  const {data, error} = await db.from('budgets').select('*').order('id');
+  if (error) { alert(error.message); return; }
+  budgets = data;
+  if (!budgets.length) { $('#app').innerHTML = '<main><div class="card"><p>Aucun budget pour ce compte.</p><button class="p" onclick="newBudget(true)">Créer mon premier budget</button> <button onclick="db.auth.signOut()">Quitter</button></div></main>'; return; }
+  let saved = null; try { saved = +localStorage.getItem('bid'); } catch(e) {}
+  bid = budgets.some(b=>b.id===saved) ? saved : budgets[0].id;
+  load();
+}
+async function newBudget(first){
+  const name = prompt(first ? 'Nom de votre premier budget (ex. Famille) :' : 'Nom du nouveau budget (ex. Perso) :');
+  if (!name || !name.trim()) return;
+  const {data, error} = await db.rpc('create_budget', {bname: name.trim()});
+  if (error) { alert(error.message); return; }
+  try { localStorage.setItem('bid', data); } catch(e) {}
+  start();
+}
+function setBudget(v){ bid = +v; try { localStorage.setItem('bid', bid); } catch(e) {} load(); }
+
 async function load(){
-  const [c,t] = await Promise.all([
-    db.from('categories').select('*').order('name'),
-    db.from('transactions').select('*').gte('date',`${year}-01-01`).lte('date',`${year}-12-31`).order('date',{ascending:false})
+  const [c,t,m] = await Promise.all([
+    db.from('categories').select('*').eq('budget_id', bid).order('name'),
+    db.from('transactions').select('*').eq('budget_id', bid).gte('date',`${year}-01-01`).lte('date',`${year}-12-31`).order('date',{ascending:false}),
+    db.rpc('list_members', {bid})
   ]);
-  const err = c.error || t.error;
+  const err = c.error || t.error || m.error;
   if (err) { alert(err.message); return; }
-  cats = c.data; tx = t.data; render();
+  cats = c.data; tx = t.data; members = m.data; render();
 }
 
 function render(){
-  const tabs = [['dash','Tableau de bord'],['depense','Dépenses'],['revenu','Revenus'],['cat','Catégories']];
-  $('#app').innerHTML = `<header><h1>Budget familial</h1>
+  const tabs = [['dash','Tableau de bord'],['depense','Dépenses'],['revenu','Revenus'],['cat','Catégories'],['mem','Membres']];
+  const bsel = budgets.map(b=>`<option value="${b.id}" ${b.id===bid?'selected':''}>${esc(b.name)}</option>`).join('');
+  $('#app').innerHTML = `<header><span><select onchange="setBudget(this.value)">${bsel}</select> <button onclick="newBudget()" title="Nouveau budget">+</button></span>
     <nav>${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</nav>
     <span><button onclick="year--;load()" title="Année précédente">◀</button>
     <input type="number" value="${year}" min="1900" max="2200" style="width:84px;text-align:center" onchange="year=+this.value||year;load()">
     <button onclick="year++;load()" title="Année suivante">▶</button>
     <button onclick="db.auth.signOut()">Quitter</button></span></header>
-    <main>${tab==='dash'?dash():tab==='cat'?catsView():entries(tab)}</main>`;
+    <main>${tab==='dash'?dash():tab==='cat'?catsView():tab==='mem'?membersView():entries(tab)}</main>`;
 }
 
 function dash(){
@@ -147,12 +167,24 @@ function entries(kind){
 async function add(kind, e){
   e.preventDefault();
   const f = e.target;
-  const {error} = await db.from('transactions').insert({kind, date:f.date.value, category:f.category.value, description:f.description.value, amount:parseFloat(f.amount.value)});
+  const {error} = await db.from('transactions').insert({budget_id:bid, kind, date:f.date.value, category:f.category.value, description:f.description.value, amount:parseFloat(f.amount.value)});
   error ? alert(error.message) : load();
 }
 async function del(id){
   if (!confirm('Supprimer cette ligne ?')) return;
   const {error} = await db.from('transactions').delete().eq('id', id);
+  error ? alert(error.message) : load();
+}
+
+function membersView(){
+  return `<div class="card"><b>Membres de ce budget</b>
+    ${members.map(m=>`<div>${esc(m.email)}</div>`).join('')}
+    <form class="row" onsubmit="addMember(event)" style="margin-top:10px"><input name="email" type="email" placeholder="Courriel (compte déjà créé)" required><button class="p">Ajouter</button></form>
+    <small style="color:var(--mu)">La personne doit d'abord créer son compte sur la page de connexion.</small></div>`;
+}
+async function addMember(e){
+  e.preventDefault();
+  const {error} = await db.rpc('add_member', {bid, member_email: e.target.email.value});
   error ? alert(error.message) : load();
 }
 
@@ -164,7 +196,7 @@ function catsView(){
 }
 async function addCat(kind, e){
   e.preventDefault();
-  const {error} = await db.from('categories').insert({kind, name:e.target.name.value.trim()});
+  const {error} = await db.from('categories').insert({budget_id:bid, kind, name:e.target.name.value.trim()});
   error ? alert(error.message) : load();
 }
 async function delCat(id){
