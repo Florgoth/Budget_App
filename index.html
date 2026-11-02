@@ -190,12 +190,24 @@ function membersView(){
   return `<div class="card"><b>Membres de ce budget</b>
     ${members.map(m=>`<div>${esc(m.email)}</div>`).join('')}
     <form class="row" onsubmit="addMember(event)" style="margin-top:10px"><input name="email" type="email" placeholder="Courriel (compte déjà créé)" required><button class="p">Ajouter</button></form>
-    <small style="color:var(--mu)">La personne doit d'abord créer son compte sur la page de connexion.</small></div>`;
+    <small style="color:var(--mu)">La personne doit d'abord créer son compte sur la page de connexion.</small>
+    <hr style="border:none;border-top:1px solid var(--bd);margin:14px 0">
+    <button class="x" onclick="leaveBudget()">Quitter ce budget</button></div>`;
+}
 }
 async function addMember(e){
   e.preventDefault();
   const {error} = await db.rpc('add_member', {bid, member_email: e.target.email.value});
   error ? alert(error.message) : load();
+}
+
+async function leaveBudget(){
+  const b = budgets.find(x=>x.id===bid);
+  if (!confirm(`Quitter le budget « ${b.name} » ? Vous n'y aurez plus accès, sauf si un membre vous y rajoute.`)) return;
+  const {error} = await db.rpc('leave_budget', {bid});
+  if (error) { alert(error.message); return; }
+  try { localStorage.removeItem('bid'); } catch(e) {}
+  start();
 }
 
 function catsView(){
