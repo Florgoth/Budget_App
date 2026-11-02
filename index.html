@@ -194,7 +194,7 @@ function membersView(){
     <hr style="border:none;border-top:1px solid var(--bd);margin:14px 0">
     <button class="x" onclick="leaveBudget()">Quitter ce budget</button></div>`;
 }
-}
+
 async function addMember(e){
   e.preventDefault();
   const {error} = await db.rpc('add_member', {bid, member_email: e.target.email.value});
