@@ -14,24 +14,9 @@
 @media(prefers-color-scheme:dark){:root{--bg:#14171d;--card:#1d222b;--tx:#e8ebf1;--mu:#98a1b3;--bd:#2c3340}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,Arial,sans-serif}
-header{display:grid;gap:8px;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--bd)}
-.top{display:flex;gap:8px;align-items:center}
-.top select{flex:1;min-width:0}
-.yr{display:flex;gap:4px;align-items:center}
-.yr button{padding:7px 9px}
-.yr input{width:68px;text-align:center}
-.tabs{display:flex;gap:4px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tabs button{flex:none}
-.menu{position:relative}
-.menu summary{list-style:none;cursor:pointer;border:1px solid var(--bd);border-radius:8px;padding:7px 12px;background:var(--card)}
-.menu summary::-webkit-details-marker{display:none}
-.menu .pop{position:absolute;right:0;top:calc(100% + 6px);z-index:10;min-width:200px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:6px;display:grid;gap:2px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
-.pop button{border:none;background:none;text-align:left;padding:10px}
-.pop button.danger{color:var(--ko)}
-.pop hr{border:none;border-top:1px solid var(--bd);margin:4px 0;width:100%}
+
 h1{font-size:18px;margin:0}
-nav{display:flex;gap:4px;flex-wrap:wrap}
+
 button,select,input{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:7px 10px}
 button{cursor:pointer}
 button.on,button.p{background:var(--ac);border-color:var(--ac);color:#fff}
@@ -56,18 +41,45 @@ td.n,th.n{text-align:right}
 .yr input{-moz-appearance:textfield;appearance:textfield}
 .yr input::-webkit-outer-spin-button,.yr input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 
-/* Ordinateur : nom du budget à largeur fixe, menu ⋮ à droite */
+/* ===== En-tête (téléphone par défaut) ===== */
+header{position:sticky;top:0;z-index:5;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--bd)}
+.top{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.yr{display:flex;gap:4px;align-items:center;order:1}
+.yr button{padding:7px 9px}
+.yr input{width:68px;text-align:center;-moz-appearance:textfield;appearance:textfield}
+.yr input::-webkit-outer-spin-button,.yr input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.dashbtn{order:2;flex:1}
+.menu{order:3;position:relative}
+.bud{order:4;flex-basis:100%;display:flex;gap:6px;align-items:center}
+.bud select{flex:1;min-width:0}
+.side{display:none;gap:8px}
+.menu summary{list-style:none;cursor:pointer;border:1px solid var(--bd);border-radius:8px;padding:7px 12px;background:var(--card)}
+.menu summary::-webkit-details-marker{display:none}
+.menu .pop{position:absolute;right:0;top:calc(100% + 6px);z-index:10;min-width:180px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:6px;display:grid;gap:2px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.pop button{border:none;background:none;text-align:left;padding:10px}
+
+/* Barre du bas (téléphone) */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{border:none;border-radius:0;background:none;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px}
+.tabs button.on{background:none;color:var(--ac);font-weight:600}
+.tabs .ic{display:block;font-size:20px}
+#app main{padding-bottom:90px}
+
+/* ===== Ordinateur ===== */
 @media(min-width:700px){
-  .top select{flex:none;width:260px}
-  .menu{margin-left:auto}
+  .dashbtn{flex:none}
+  .bud{order:3;flex-basis:auto}
+  .bud select{flex:none;width:260px}
+  .tabs{order:4;position:static;display:flex;gap:4px;background:none;border:none;padding:0}
+  .tabs button{flex-direction:row;font-size:inherit;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--card)}
+  .tabs button.on{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:400}
+  .tabs .ic{display:none}
+  .menu{display:none}
+  .side{display:flex;order:5;margin-left:auto}
+  #app main{padding-bottom:16px}
 }
 
-/* Téléphone : Tableau de bord sur toute la largeur, les 3 autres en dessous */
-@media(max-width:699px){
-  .tabs{display:grid;grid-template-columns:repeat(3,1fr);overflow:visible;white-space:normal}
-  .tabs button{padding:8px 4px}
-  .tabs button:first-child{grid-column:1/-1}
-}
+
 </style>
 </head>
 <body>
@@ -168,26 +180,24 @@ async function load(){
 }
 
 function render(){
-  const tabs = [['dash','Tableau de bord'],['depense','Dépenses'],['revenu','Revenus'],['cat','Catégories']];
+  const tabs = [['depense','💸','Dépenses'],['revenu','💰','Revenus'],['cat','🏷️','Catégories']];
   const bsel = budgets.map(b=>`<option value="${b.id}" ${b.id===bid?'selected':''}>${esc(b.name)}</option>`).join('');
-  $('#app').innerHTML = `<header>
-    <div class="top">
-      <span class="yr"><button onclick="year--;load()" title="Année précédente">◀</button>
+  $('#app').innerHTML = `<header><div class="top">
+    <span class="yr"><button onclick="year--;load()" title="Année précédente">◀</button>
       <input type="number" value="${year}" min="1900" max="2200" onchange="year=+this.value||year;load()">
       <button onclick="year++;load()" title="Année suivante">▶</button></span>
-      <select onchange="setBudget(this.value)">${bsel}</select>
-      <details class="menu"><summary title="Menu">⋮</summary><div class="pop">
-        <button onclick="closeMenu(this);tab='mem';render()">👥 Membres</button>
-        <hr>
-        <button onclick="closeMenu(this);newBudget()">＋ Nouveau budget</button>
-        <button onclick="closeMenu(this);renameBudget()">✏️ Renommer ce budget</button>
-        <button class="danger" onclick="closeMenu(this);deleteBudget()">🗑 Supprimer ce budget</button>
-        <hr>
-        <button onclick="db.auth.signOut()">Quitter</button>
-      </div></details>
-    </div>
-    <nav class="tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</nav></header>
-    <main>${tab==='dash'?dash():tab==='cat'?catsView():tab==='mem'?membersView():entries(tab)}</main>`;
+    <button class="dashbtn ${tab==='dash'?'on':''}" onclick="tab='dash';render()">Tableau de bord</button>
+    <span class="bud"><select onchange="setBudget(this.value)">${bsel}</select>
+      <button onclick="newBudget()" title="Nouveau budget">+</button>
+      <button onclick="renameBudget()" title="Renommer ce budget">✏️</button>
+      <button onclick="deleteBudget()" title="Supprimer ce budget">🗑</button></span>
+    <nav class="tabs">${tabs.map(([k,i,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()"><span class="ic">${i}</span><span>${l}</span></button>`).join('')}</nav>
+    <span class="side"><button class="${tab==='mem'?'on':''}" onclick="tab='mem';render()">Membres</button><button onclick="db.auth.signOut()">Quitter</button></span>
+    <details class="menu"><summary title="Menu">⋮</summary><div class="pop">
+      <button onclick="closeMenu(this);tab='mem';render()">👥 Membres</button>
+      <button onclick="db.auth.signOut()">Quitter</button></div></details>
+  </div></header>
+  <main>${tab==='dash'?dash():tab==='cat'?catsView():tab==='mem'?membersView():entries(tab)}</main>`;
 }
 
 function dash(){
