@@ -78,7 +78,9 @@ header{position:sticky;top:0;z-index:5;padding:10px 12px;background:var(--card);
   .side{display:flex;order:5;margin-left:auto}
   #app main{padding-bottom:16px}
 }
-
+@media(max-width:699px){
+  .chart text{font-size:18px}
+}
 
 </style>
 </head>
@@ -223,7 +225,7 @@ function dash(){
     <div class="card kpi"><small>Total dépenses</small><b class="ko">${fmt(D)}</b></div>
     <div class="card kpi"><small>Solde annuel</small><b class="${S>=0?'ok':'ko'}">${fmt(S)}</b></div></div>
     <div class="card"><b>Évolution mensuelle</b> <small>(vert : revenus, rouge : dépenses)</small>
-      <div class="scroll"><svg viewBox="0 0 690 205" width="100%" style="min-width:560px">${bars}</svg></div></div>
+      <div class="scroll"><svg class="chart" viewBox="0 0 690 205" width="100%">${bars}</svg></div></div>
     <div class="card"><b>Dépenses par catégorie</b>
       ${rows.map(([k,v])=>`<div class="bar"><span>${esc(k)}</span><i style="width:${v/top*55}%"></i><span>${fmt(v)}</span></div>`).join('') || '<p>Aucune dépense pour cette année.</p>'}</div>
     <div class="card scroll"><b>Résumé mensuel</b><table><tr><th>Mois</th><th class="n">Revenus</th><th class="n">Dépenses</th><th class="n">Solde</th></tr>
