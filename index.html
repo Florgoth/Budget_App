@@ -51,6 +51,23 @@ td.n,th.n{text-align:right}
 .bar i{display:block;height:12px;background:var(--ac);border-radius:6px}
 .login{max-width:340px;margin:12vh auto;display:grid;gap:10px}
 .x{border:none;background:none;color:var(--ko);padding:2px 6px}
+
+/* Année : enlever les petites flèches haut/bas du champ */
+.yr input{-moz-appearance:textfield;appearance:textfield}
+.yr input::-webkit-outer-spin-button,.yr input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+/* Ordinateur : nom du budget à largeur fixe, menu ⋮ à droite */
+@media(min-width:700px){
+  .top select{flex:none;width:260px}
+  .menu{margin-left:auto}
+}
+
+/* Téléphone : Tableau de bord sur toute la largeur, les 3 autres en dessous */
+@media(max-width:699px){
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);overflow:visible;white-space:normal}
+  .tabs button{padding:8px 4px}
+  .tabs button:first-child{grid-column:1/-1}
+}
 </style>
 </head>
 <body>
