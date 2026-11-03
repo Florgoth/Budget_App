@@ -14,7 +14,22 @@
 @media(prefers-color-scheme:dark){:root{--bg:#14171d;--card:#1d222b;--tx:#e8ebf1;--mu:#98a1b3;--bd:#2c3340}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,Arial,sans-serif}
-header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--bd)}
+header{display:grid;gap:8px;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--bd)}
+.top{display:flex;gap:8px;align-items:center}
+.top select{flex:1;min-width:0}
+.yr{display:flex;gap:4px;align-items:center}
+.yr button{padding:7px 9px}
+.yr input{width:68px;text-align:center}
+.tabs{display:flex;gap:4px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:none}
+.menu{position:relative}
+.menu summary{list-style:none;cursor:pointer;border:1px solid var(--bd);border-radius:8px;padding:7px 12px;background:var(--card)}
+.menu summary::-webkit-details-marker{display:none}
+.menu .pop{position:absolute;right:0;top:calc(100% + 6px);z-index:10;min-width:200px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:6px;display:grid;gap:2px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.pop button{border:none;background:none;text-align:left;padding:10px}
+.pop button.danger{color:var(--ko)}
+.pop hr{border:none;border-top:1px solid var(--bd);margin:4px 0;width:100%}
 h1{font-size:18px;margin:0}
 nav{display:flex;gap:4px;flex-wrap:wrap}
 button,select,input{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:7px 10px}
@@ -51,6 +66,8 @@ const REQUIRE_LOGIN = true; // false = pas de connexion (tests seulement). Remet
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = s => document.querySelector(s);
+const closeMenu = b => b.closest('details').removeAttribute('open');
+document.addEventListener('click', e => document.querySelectorAll('details.menu[open]').forEach(d => { if (!d.contains(e.target)) d.removeAttribute('open'); }));
 const MOIS = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
 const fmt = n => new Intl.NumberFormat('fr-CA',{style:'currency',currency:'CAD'}).format(n||0);
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -134,14 +151,25 @@ async function load(){
 }
 
 function render(){
-  const tabs = [['dash','Tableau de bord'],['depense','Dépenses'],['revenu','Revenus'],['cat','Catégories'],['mem','Membres']];
+  const tabs = [['dash','Tableau de bord'],['depense','Dépenses'],['revenu','Revenus'],['cat','Catégories']];
   const bsel = budgets.map(b=>`<option value="${b.id}" ${b.id===bid?'selected':''}>${esc(b.name)}</option>`).join('');
-  $('#app').innerHTML = `<header><span><select onchange="setBudget(this.value)">${bsel}</select> <button onclick="newBudget()" title="Nouveau budget">+</button> <button onclick="renameBudget()" title="Renommer ce budget">✏️</button> <button onclick="deleteBudget()" title="Supprimer ce budget">🗑</button></span>
-    <nav>${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</nav>
-    <span><button onclick="year--;load()" title="Année précédente">◀</button>
-    <input type="number" value="${year}" min="2020" max="2200" style="width:84px;text-align:center" onchange="year=+this.value||year;load()">
-    <button onclick="year++;load()" title="Année suivante">▶</button>
-    <button onclick="db.auth.signOut()">Quitter</button></span></header>
+  $('#app').innerHTML = `<header>
+    <div class="top">
+      <span class="yr"><button onclick="year--;load()" title="Année précédente">◀</button>
+      <input type="number" value="${year}" min="1900" max="2200" onchange="year=+this.value||year;load()">
+      <button onclick="year++;load()" title="Année suivante">▶</button></span>
+      <select onchange="setBudget(this.value)">${bsel}</select>
+      <details class="menu"><summary title="Menu">⋮</summary><div class="pop">
+        <button onclick="closeMenu(this);tab='mem';render()">👥 Membres</button>
+        <hr>
+        <button onclick="closeMenu(this);newBudget()">＋ Nouveau budget</button>
+        <button onclick="closeMenu(this);renameBudget()">✏️ Renommer ce budget</button>
+        <button class="danger" onclick="closeMenu(this);deleteBudget()">🗑 Supprimer ce budget</button>
+        <hr>
+        <button onclick="db.auth.signOut()">Quitter</button>
+      </div></details>
+    </div>
+    <nav class="tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('')}</nav></header>
     <main>${tab==='dash'?dash():tab==='cat'?catsView():tab==='mem'?membersView():entries(tab)}</main>`;
 }
 
